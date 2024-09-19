@@ -1,0 +1,58 @@
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.dispatcher import FSMContext
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+import asyncio
+import emoji
+
+
+api = ''
+bot = Bot(token=api)
+dp = Dispatcher(bot, storage=MemoryStorage())
+
+key_board = ReplyKeyboardMarkup(resize_keyboard=True)
+btn_1 = KeyboardButton(text=emoji.emojize('Рассчитать :fork_and_knife_with_plate:'))
+btn_2 = KeyboardButton(text=emoji.emojize('Информация :eye:'))
+key_board.add(btn_1, btn_2)
+
+
+@dp.message_handler(commands=['start'])
+async def start(message):
+    await message.answer('Привет! Я бот помогающий твоему здоровью.', reply_markup=key_board)
+
+
+class UserState(StatesGroup):
+    age = State()
+    growth = State()
+    weigth = State()
+
+@dp.message_handler(text=[emoji.emojize('Рассчитать :fork_and_knife_with_plate:')])
+async def set_age(message):
+    await message.answer('Введите свой возраст 🎉')
+    await UserState.age.set()
+@dp.message_handler(state=UserState.age)
+async def set_growth(message, state):
+    await state.update_data(age=message.text)
+    await message.answer(f'Введите свой рост 📏')
+    await UserState.growth.set()
+@dp.message_handler(state=UserState.growth)
+async def set_weigth(message, state):
+    await state.update_data(growth=message.text)
+    await message.answer(f'Введите свой вес ⚖️')
+    await UserState.weigth.set()
+@dp.message_handler(state=UserState.weigth)
+async def send_calories(message, state):
+    await state.update_data(weigth=message.text)
+    data = await state.get_data()
+    calories_res = ((10 * int(data['weigth'])) + (6.25 * int(data['growth'])) - (5 * int(data['age'])) + 5)
+    await message.answer(f'{calories_res} калорий 👍')
+    await state.finish()
+
+@dp.message_handler()
+async def all_massages(message):
+    await message.answer('Введите команду /start, чтобы начать общение')
+
+
+if __name__=='__main__':
+    executor.start_polling(dp, skip_updates=True)
